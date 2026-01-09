@@ -71,6 +71,7 @@ namespace libsugarx
     };
 
     template<std::size_t N, typename... Args>
+    [[nodiscard]]
     fixed_string<N> string_format(std::string_view fmt, Args&&... args)
     {
         fixed_string<N> buffer;
