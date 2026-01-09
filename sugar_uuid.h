@@ -23,6 +23,9 @@ namespace libsugarx
         uuid() = default;
         uuid(uuid_string str) { from_string(str); }
 
+        std::array<std::byte, 16> &raw_data() { return data; }
+        const std::array<std::byte, 16> &raw_data() const { return data; }
+
         static uuid generate_v1() = delete;
         static uuid generate_v2() = delete;
         // MD5 based
