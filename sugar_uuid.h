@@ -86,7 +86,7 @@ namespace libsugarx
         MD5_Update(&ctx, name.data(), name.size());
         MD5_Final(reinterpret_cast<unsigned char *>(digest.data()), &ctx);
 
-        for(int i = 0; i < result.data.size(); i++)
+        for(std::size_t i = 0; i < result.data.size(); i++)
             result.data[i] = digest[i];
 
         result.set_version_and_variant(3);
@@ -113,7 +113,7 @@ namespace libsugarx
         SHA1_Update(&ctx, name.data(), name.size());
         SHA1_Final(reinterpret_cast<unsigned char *>(digest.data()), &ctx);
 
-        for(int i = 0; i < result.data.size(); i++)
+        for(std::size_t i = 0; i < result.data.size(); i++)
             result.data[i] = digest[i];
         result.set_version_and_variant(5);
         return result;
