@@ -1,6 +1,7 @@
-The UnLock License Extension v2.1
+UnLock协议扩展 v3
 
-- No Closed Source: I will never privately maintain or re-license this software. This is the only release.
-- No Vandalism: I will never delete the repo or inject malicious code, regardless of sponsorship.
+- 无闭源: 我永不会维护一个私有的或者重新许可该软件的版本。这是唯一的版本。
+- 无恶意: 我永不会删库跑路也不会注入恶意代码，即使没有获得任何一分赞助。
+- 无分叉争议: 我将会在不再维护后将该软件标记为存档或给予社区维护者权限。
 
-This is a moral extension to the main license. It is a statement of intent, not a legal license, and cannot be revoked
+这是一个对主协议的扩展。它是一个道德声明而非法律协议，并且永不撤回。本声明可以更新版本，但已承诺的内容永不收回。
