@@ -18,7 +18,14 @@ namespace libsugarx
             data[8] = std::byte((static_cast<unsigned char>(data[8]) & 0x3F) | 0x80);
         }
 
-        void from_string(uuid_string str);
+
+        constexpr static void string_append_byte(uuid_string &str, std::byte byte)
+        {
+            static const char hex_digits[] = "0123456789abcdef";
+            unsigned char c = static_cast<unsigned char>(byte);
+            str.concat(hex_digits[c >> 4]);
+            str.concat(hex_digits[c & 0x0F]);
+        };
     public:
         uuid() = default;
         uuid(uuid_string str) { from_string(str); }
@@ -38,7 +45,23 @@ namespace libsugarx
         // timestamp + random
         static uuid generate_v7();
 
-        uuid_string to_string() const;
+        void from_string(uuid_string str);
+
+        constexpr uuid_string to_string() const
+        {
+            uuid_string str;
+            string_append_byte(str, data[0]); string_append_byte(str, data[1]); string_append_byte(str, data[2]); string_append_byte(str, data[3]);
+            str.concat('-');
+            string_append_byte(str, data[4]); string_append_byte(str, data[5]);
+            str.concat('-');
+            string_append_byte(str, data[6]); string_append_byte(str, data[7]);
+            str.concat('-');
+            string_append_byte(str, data[8]); string_append_byte(str, data[9]);
+            str.concat('-');
+            string_append_byte(str, data[10]); string_append_byte(str, data[11]); string_append_byte(str, data[12]);
+            string_append_byte(str, data[13]); string_append_byte(str, data[14]); string_append_byte(str, data[15]);
+            return str;
+        }
 
         auto operator<=>(const uuid &other) const = default;
     };
@@ -60,6 +83,15 @@ namespace std
             return formatter<libsugarx::uuid_string, char>::format(uuid.to_string(), ctx);
         }
     };
+
+    template<>
+    struct hash<libsugarx::uuid>
+    {
+        size_t operator()(const libsugarx::uuid &uuid) const noexcept
+        {
+            return std::hash<std::string_view>{}({reinterpret_cast<const char*>(uuid.raw_data().data()), uuid.raw_data().size()});
+        }
+    };
 }
 
 #endif // LIBSUGARX_UUID
@@ -68,9 +100,7 @@ namespace std
 
 #include <chrono>
 
-#define OPENSSL_API_COMPAT 0x10101000L
-#include <openssl/md5.h>
-#include <openssl/sha.h>
+#include <openssl/evp.h>
 #include <openssl/rand.h>
 
 namespace libsugarx
@@ -78,13 +108,14 @@ namespace libsugarx
     uuid uuid::generate_v3(std::string_view name, uuid name_space)
     {
         uuid result;
-        MD5_CTX ctx;
-        std::array<std::byte, MD5_DIGEST_LENGTH> digest;
+        EVP_MD_CTX *ctx = EVP_MD_CTX_new();
+        std::array<std::byte, EVP_MAX_MD_SIZE> digest;
 
-        MD5_Init(&ctx);
-        MD5_Update(&ctx, name_space.data.data(), name_space.data.size());
-        MD5_Update(&ctx, name.data(), name.size());
-        MD5_Final(reinterpret_cast<unsigned char *>(digest.data()), &ctx);
+        EVP_DigestInit(ctx, EVP_md5());
+        EVP_DigestUpdate(ctx, name_space.data.data(), name_space.data.size());
+        EVP_DigestUpdate(ctx, name.data(), name.size());
+        EVP_DigestFinal(ctx, reinterpret_cast<unsigned char *>(digest.data()), nullptr);
+        EVP_MD_CTX_free(ctx);
 
         for(std::size_t i = 0; i < result.data.size(); i++)
             result.data[i] = digest[i];
@@ -105,13 +136,14 @@ namespace libsugarx
     uuid uuid::generate_v5(std::string_view name, uuid name_space)
     {
         uuid result;
-        SHA_CTX ctx;
-        std::array<std::byte, SHA_DIGEST_LENGTH> digest;
+        EVP_MD_CTX *ctx = EVP_MD_CTX_new();
+        std::array<std::byte, EVP_MAX_MD_SIZE> digest;
 
-        SHA1_Init(&ctx);
-        SHA1_Update(&ctx, name_space.data.data(), name_space.data.size());
-        SHA1_Update(&ctx, name.data(), name.size());
-        SHA1_Final(reinterpret_cast<unsigned char *>(digest.data()), &ctx);
+        EVP_DigestInit(ctx, EVP_sha1());
+        EVP_DigestUpdate(ctx, name_space.data.data(), name_space.data.size());
+        EVP_DigestUpdate(ctx, name.data(), name.size());
+        EVP_DigestFinal(ctx, reinterpret_cast<unsigned char *>(digest.data()), nullptr);
+        EVP_MD_CTX_free(ctx);
 
         for(std::size_t i = 0; i < result.data.size(); i++)
             result.data[i] = digest[i];
@@ -175,32 +207,6 @@ namespace libsugarx
 
             data[i] = std::byte(static_cast<unsigned char>((high << 4) | low));
         }
-    }
-
-    uuid_string uuid::to_string() const
-    {
-        uuid_string str;
-        static const char hex_digits[] = "0123456789abcdef";
-
-        str.clear();
-        auto append_byte = [&](std::byte b)
-        {
-            unsigned char c = static_cast<unsigned char>(b);
-            str.concat(hex_digits[c >> 4]);
-            str.concat(hex_digits[c & 0x0F]);
-        };
-
-        append_byte(data[0]); append_byte(data[1]); append_byte(data[2]); append_byte(data[3]);
-        str.concat('-');
-        append_byte(data[4]); append_byte(data[5]);
-        str.concat('-');
-        append_byte(data[6]); append_byte(data[7]);
-        str.concat('-');
-        append_byte(data[8]); append_byte(data[9]);
-        str.concat('-');
-        append_byte(data[10]); append_byte(data[11]); append_byte(data[12]);
-        append_byte(data[13]); append_byte(data[14]); append_byte(data[15]);
-        return str;
     }
 };
 

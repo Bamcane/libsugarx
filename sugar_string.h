@@ -11,22 +11,21 @@ namespace libsugarx
     template<std::size_t N>
     class fixed_string;
 
-    using string_hash = std::hash<std::string_view>;
-    // do NOT compare with string_hash
-    struct consteval_string_hash
+    // do NOT compare with std::hash<std::string_view>
+    struct sugarx_string_hash
     {
         struct value
         {
             std::size_t v;
-            explicit consteval value(std::size_t value) noexcept : v(value) {}
+            explicit constexpr value(std::size_t value) noexcept : v(value) {}
             auto operator<=>(const value &other) const = default;
         };
-        template <std::size_t N>
+
         [[nodiscard]]
-        consteval value operator()(const char (&str)[N]) const noexcept
+        constexpr value operator()(std::string_view str) const noexcept
         {
             std::size_t h = 0xcbf29ce484222325ULL;
-            for (std::size_t i = 0; i < N - 1; ++i)
+            for (std::size_t i = 0; i < str.length() - 1; ++i)
             {
                 h ^= static_cast<unsigned char>(str[i]);
                 h *= 0x100000001b3ULL;
@@ -48,12 +47,12 @@ namespace libsugarx
         using pointer = void;
         using reference = void;
 
-        explicit bounded_buffer_iterator(char* buffer) : ptr_(buffer), remaining_(N - 1)
+        constexpr explicit bounded_buffer_iterator(char* buffer) : ptr_(buffer), remaining_(N - 1)
         {
-            if (N == 0) throw std::logic_error("N must be >= 1");
+            static_assert(N > 0, "the size of buffer iterator should be greater than 0.");
         }
 
-        bounded_buffer_iterator& operator=(char c)
+        constexpr bounded_buffer_iterator& operator=(char c)
         {
             if (remaining_ > 0)
             {
@@ -63,16 +62,16 @@ namespace libsugarx
             return *this;
         }
 
-        bounded_buffer_iterator& operator*() { return *this; }
-        bounded_buffer_iterator& operator++() { return *this; }
-        bounded_buffer_iterator operator++(int) { return *this; }
+        constexpr bounded_buffer_iterator& operator*() { return *this; }
+        constexpr bounded_buffer_iterator& operator++() { return *this; }
+        constexpr bounded_buffer_iterator operator++(int) { return *this; }
 
-        char* end_ptr() const { return ptr_; }
+        constexpr char* end_ptr() const { return ptr_; }
     };
 
     template<std::size_t N, typename... Args>
     [[nodiscard]]
-    fixed_string<N> string_format(std::string_view fmt, Args&&... args)
+    constexpr fixed_string<N> string_format(std::string_view fmt, Args&&... args)
     {
         fixed_string<N> buffer;
         buffer.format(fmt, std::forward<Args>(args)...);
@@ -91,52 +90,16 @@ namespace libsugarx
         std::array<char, N> buffer{};
     public:
         constexpr fixed_string() noexcept { static_assert(N > 1, "String buffer must own enough memory size."); buffer[0] = '\0'; }
-        template<std::size_t N2>
-        constexpr fixed_string(const char (&other)[N2]) noexcept { static_assert(N > 1, "String buffer must own enough memory size."); const_copy(other); }
-        template<std::size_t N2>
-        constexpr fixed_string(const fixed_string<N2>& other) noexcept { static_assert(N > 1, "String buffer must own enough memory size."); const_copy(other); }
+        constexpr fixed_string(std::string_view other) noexcept { static_assert(N > 1, "String buffer must own enough memory size."); copy(other); }
 
-        template<std::size_t N2>
-        fixed_string(fixed_string<N2>& other) { static_assert(N > 1, "String buffer must own enough memory size."); copy(other); }
-
-        template<std::size_t N2>
-        constexpr void const_copy(const fixed_string<N2>& other) noexcept
-        {
-            constexpr std::size_t len = std::min(N2 - 1, N - 1);
-            for(std::size_t i = 0; i < len; ++i)
-            {
-                buffer[i] = other.buffer[i];
-            }
-            buffer[len] = '\0';
-        }
-
-        template<std::size_t N2>
-        constexpr void const_copy(const char (&other)[N2]) noexcept
-        {
-            constexpr std::size_t len = std::min(N2 - 1, N - 1);
-            for(std::size_t i = 0; i < len; ++i)
-            {
-                buffer[i] = other[i];
-            }
-            buffer[len] = '\0';
-        }
-
-        template<std::size_t N2>
-        void copy(const fixed_string<N2>& other)
-        {
-            std::size_t len = std::min(N2 - 1, N - 1);
-            std::copy(other.data(), other.data() + len, buffer.data());
-            buffer[len] = '\0';
-        }
-
-        void copy(std::string_view other) 
+        constexpr void copy(std::string_view other) noexcept
         {
             std::size_t len = std::min(other.size(), N - 1);
             std::copy(other.data(), other.data() + len, buffer.data());
             buffer[len] = '\0';
         }
 
-        void concat(const char& chr) noexcept
+        constexpr void concat(const char& chr) noexcept
         {
             std::size_t current_len = length();
             std::ptrdiff_t available = N - current_len - 1;
@@ -148,8 +111,7 @@ namespace libsugarx
             }
         }
 
-        template<std::size_t N2>
-        void concat(const fixed_string<N2>& other)
+        constexpr void concat(std::string_view other)
         {
             std::size_t current_len = length();
             std::size_t append_len = other.length();
@@ -164,7 +126,7 @@ namespace libsugarx
         }
 
         template<typename... Args>
-        void format(std::string_view fmt, Args&&... args)
+        constexpr void format(std::string_view fmt, Args&&... args)
         {
             if constexpr (sizeof...(Args) == 0)
             {
@@ -185,37 +147,34 @@ namespace libsugarx
         }
         
 
-        std::size_t length() { return std::char_traits<char>::length(data()); }
-        std::size_t length() const { return std::char_traits<char>::length(data()); }
+        constexpr std::size_t find(std::string_view sub, std::size_t pos = 0U) const noexcept { return view().find(sub, pos); }
+        constexpr bool starts_with(std::string_view sub) const noexcept { return view().starts_with(sub); }
 
-        std::array<char, N> &buffer_data() { return buffer; }
-        std::array<char, N> &buffer_data() const { return buffer; }
+        constexpr std::size_t length() const { return std::char_traits<char>::length(data()); }
 
-        char *data() { return buffer.data(); }
+        constexpr std::array<char, N> &buffer_data() { return buffer; }
+        constexpr std::array<char, N> &buffer_data() const { return buffer; }
+
+        constexpr char *data() { return buffer.data(); }
         const char *data() const { return buffer.data(); }
 
-        char &operator[](std::size_t index) { return buffer[index]; }
+        constexpr char &operator[](std::size_t index) { return buffer[index]; }
         constexpr char &operator[](std::size_t index) const { return buffer[index]; }
 
-        char &at(std::size_t index) { return buffer.at(index); }
+        constexpr char &at(std::size_t index) { return buffer.at(index); }
         constexpr char &at(std::size_t index) const { return buffer.at(index); }
         // is empty
-        bool empty() { return length() == 0; }
+        constexpr bool empty() { return length() == 0; }
 
-        void clear() { buffer[0] = '\0'; }
+        constexpr void clear() { buffer[0] = '\0'; }
 
-        std::string_view view() const { return std::string_view(data(), length()); }
+        constexpr std::string_view view() const { return std::string_view(data(), length()); }
 
-        template<std::size_t N2>
-        const fixed_string<N> &operator=(const fixed_string<N2>& other) { copy(other); return *this; } 
-        const fixed_string<N> &operator=(std::string_view other) { copy(other); return *this; }
+        constexpr fixed_string<N> &operator=(std::string_view other) { copy(other); return *this; }
+        constexpr bool operator==(std::string_view other) const { return view() == other; }
 
-        template<std::size_t N2>
-        bool operator==(const fixed_string<N2>& other) const { return std::equal(buffer.begin(), buffer.begin() + length(), other.buffer.begin()); } 
-        bool operator==(std::string_view other) const { return view() == other; }
-
-        operator std::string_view() { return view(); }
-        operator std::string_view() const { return view(); }
+        constexpr operator std::string_view() { return view(); }
+        constexpr operator std::string_view() const { return view(); }
     };
 
 };
@@ -241,7 +200,8 @@ namespace std
     template<std::size_t N>
     struct hash<libsugarx::fixed_string<N>>
     {
-        constexpr size_t operator()(const libsugarx::fixed_string<N> &buf) const noexcept
+        [[nodiscard]]
+        size_t operator()(const libsugarx::fixed_string<N> &buf) const noexcept
         {
             return std::hash<std::string_view>{}(buf.view());
         }
