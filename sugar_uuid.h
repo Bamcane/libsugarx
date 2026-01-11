@@ -12,7 +12,7 @@ namespace libsugarx
     {
         std::array<std::byte, 16> data{};
 
-        void set_version_and_variant(int version)
+        constexpr void set_version_and_variant(int version)
         {
             data[6] = std::byte((static_cast<unsigned char>(data[6]) & 0x0F) | (version << 4));
             data[8] = std::byte((static_cast<unsigned char>(data[8]) & 0x3F) | 0x80);
@@ -38,12 +38,12 @@ namespace libsugarx
         // MD5 based
         static uuid generate_v3(std::string_view name, uuid name_space);
         // random
-        static uuid generate_v4();
+        static std::optional<uuid> generate_v4();
         // Sha256 based
         static uuid generate_v5(std::string_view name, uuid name_space);
         static uuid generate_v6() = delete;
         // timestamp + random
-        static uuid generate_v7();
+        static std::optional<uuid> generate_v7();
 
         void from_string(uuid_string str);
 
@@ -124,11 +124,11 @@ namespace libsugarx
         return result;
     }
 
-    uuid uuid::generate_v4()
+    std::optional<uuid> uuid::generate_v4()
     {
         uuid result;
         if(RAND_bytes(reinterpret_cast<unsigned char *>(result.data.data()), result.data.size()) != 1)
-            throw std::runtime_error("uuid generate error");
+            return std::nullopt;
         result.set_version_and_variant(4);
         return result;
     }
@@ -151,7 +151,7 @@ namespace libsugarx
         return result;
     }
 
-    uuid uuid::generate_v7()
+    std::optional<uuid> uuid::generate_v7()
     {
         uuid result;
         int64_t now_ms = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::utc_clock::now().time_since_epoch()).count();
@@ -165,7 +165,7 @@ namespace libsugarx
         result.data[5] = std::byte(timestamp & 0xFF);
 
         if(RAND_bytes(reinterpret_cast<unsigned char *>(result.data.data() + 6), 10) != 1)
-            throw std::runtime_error("uuid generate error");
+            return std::nullopt;
 
         result.set_version_and_variant(7);
         return result;

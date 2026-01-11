@@ -2,6 +2,7 @@
 #define LIBSUGARX_LAZYTABLE_H
 
 #include <algorithm>
+#include <functional>
 #include <optional>
 #include <set>
 #include <stdexcept>
@@ -27,7 +28,7 @@ namespace libsugarx
         lazy_flat_table_proxy<Key, Value>& operator=(lazy_flat_table_proxy& other) = delete;
 
         template<typename... Args>
-        constexpr lazy_flat_table_proxy(Key self_key, Args... args) :
+        constexpr lazy_flat_table_proxy(Key self_key, Args&&... args) :
             key_(self_key),
             value_(std::forward<Args>(args)...)
         {
@@ -100,28 +101,29 @@ namespace libsugarx
         lazy_flat_table<Key, Value>& operator=(lazy_flat_table&& other) noexcept = default;
 
         template<typename... Args>
-        proxy &insert(Key key, Args... args)
+        /*
+        need to check if return value is available.
+        */
+        std::optional<std::reference_wrapper<proxy>> emplace(Key key, Args&&... args)
         {
-            if(index_table.find(key) != index_table.end())
-                throw std::runtime_error("Key already exists");
-            std::size_t index = removed_list.empty() ? static_cast<std::size_t>(-1) : *removed_list.begin();
-            if(index == static_cast<std::size_t>(-1))
+            if(index_table.count(key))
+                return std::nullopt;
+            if(removed_list.empty())
             {
-                proxies.emplace_back(key, std::forward<Args>(args)...);
-                index = proxies.size() - 1;
+                proxy &result = proxies.emplace_back(key, std::forward<Args>(args)...);
+                index_table[key] = proxies.size() - 1;
+                return result;
             }
-            else
-            {
-                proxies[index] = std::move(proxy(key, std::forward<Args>(args)...));
-            }
-            index_table[key] = index;
-            return proxies[index];
+            std::size_t begin = *removed_list.begin();
+            removed_list.erase(begin);
+            proxy &result = proxies[begin] = proxy(key, std::forward<Args>(args)...);
+            index_table[key] = begin;
+            return std::ref(result);
         }
 
         bool contains(const Key& key) const noexcept
         {
-            auto iter = index_table.find(key);
-            return iter != index_table.end();
+            return index_table.count(key);
         }
 
         /*
@@ -233,9 +235,9 @@ namespace libsugarx
                 compact();
         }
 
-        class iterator
+        template<typename vec_iter>
+        class iterator_impl
         {
-            using vec_iter = std::vector<proxy>::iterator;
             vec_iter current_;
             vec_iter end_;
 
@@ -248,68 +250,38 @@ namespace libsugarx
             }
 
         public:
-            explicit iterator(vec_iter it, vec_iter end) : current_(it), end_(end)
+            explicit iterator_impl(vec_iter it, vec_iter end) : current_(it), end_(end)
             {
                 skip_to_available();
             }
 
             proxy &operator*() const { return *current_; }
 
-            iterator& operator++()
+            iterator_impl& operator++()
             {
                 ++current_;
                 skip_to_available();
                 return *this;
             }
 
-            bool operator!=(const iterator& other) const
+            bool operator!=(const iterator_impl& other) const
             {
                 return current_ != other.current_;
             }
         };
 
-        iterator begin() {
+        using iterator = iterator_impl<typename std::vector<proxy>::iterator>;
+        using const_iterator = iterator_impl<typename std::vector<proxy>::const_iterator>;
+
+        iterator begin()
+        {
             return iterator(proxies.begin(), proxies.end());
         }
 
-        iterator end() {
+        iterator end()
+        {
             return iterator(proxies.end(), proxies.end());
         }
-
-        class const_iterator
-        {
-            using vec_iter = std::vector<proxy>::const_iterator;
-            vec_iter current_;
-            vec_iter end_;
-
-            void skip_to_available()
-            {
-                while (current_ != end_ && (*current_).is_removed())
-                {
-                    ++current_;
-                }
-            }
-
-        public:
-            explicit const_iterator(vec_iter it, vec_iter end) : current_(it), end_(end)
-            {
-                skip_to_available();
-            }
-
-            proxy &operator*() const { return *current_; }
-
-            const_iterator& operator++()
-            {
-                ++current_;
-                skip_to_available();
-                return *this;
-            }
-
-            bool operator!=(const const_iterator& other) const
-            {
-                return current_ != other.current_;
-            }
-        };
 
         const_iterator cbegin() const {
             return const_iterator(proxies.cbegin(), proxies.cend());

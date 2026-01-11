@@ -92,11 +92,12 @@ namespace libsugarx
         constexpr fixed_string() noexcept { static_assert(N > 1, "String buffer must own enough memory size."); buffer[0] = '\0'; }
         constexpr fixed_string(std::string_view other) noexcept { static_assert(N > 1, "String buffer must own enough memory size."); copy(other); }
 
-        constexpr void copy(std::string_view other) noexcept
+        constexpr bool copy(std::string_view other) noexcept
         {
             std::size_t len = std::min(other.size(), N - 1);
             std::copy(other.data(), other.data() + len, buffer.data());
             buffer[len] = '\0';
+            return true;
         }
 
         constexpr void concat(const char& chr) noexcept
@@ -126,12 +127,14 @@ namespace libsugarx
         }
 
         template<typename... Args>
-        constexpr void format(std::string_view fmt, Args&&... args)
+        /*
+        return true on success
+        */
+        constexpr bool format(std::string_view fmt, Args&&... args)
         {
             if constexpr (sizeof...(Args) == 0)
             {
-                copy(fmt);
-                return;
+                return copy(fmt);
             }
             
             try
@@ -142,14 +145,16 @@ namespace libsugarx
             }
             catch (const std::exception& e)
             {
-                throw std::format_error(e.what());
+                return false;
             }
+            return true;
         }
         
 
         constexpr std::size_t find(std::string_view sub, std::size_t pos = 0U) const noexcept { return view().find(sub, pos); }
         constexpr bool starts_with(std::string_view sub) const noexcept { return view().starts_with(sub); }
 
+        constexpr std::size_t max_size() const { return N; }
         constexpr std::size_t length() const { return std::char_traits<char>::length(data()); }
 
         constexpr std::array<char, N> &buffer_data() { return buffer; }
