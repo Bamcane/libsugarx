@@ -37,13 +37,17 @@ namespace libsugarx
         static uuid generate_v2() = delete;
         // MD5 based
         static uuid generate_v3(std::string_view name, uuid name_space);
-        // random
-        static std::optional<uuid> generate_v4();
+        // random + return optional
+        static std::optional<uuid> generate_v4_optional();
+        // random + return nullable
+        static uuid generate_v4_nullable();
         // Sha256 based
         static uuid generate_v5(std::string_view name, uuid name_space);
         static uuid generate_v6() = delete;
-        // timestamp + random
-        static std::optional<uuid> generate_v7();
+        // timestamp + random + return optional
+        static std::optional<uuid> generate_v7_optional();
+        // timestamp + random + return nullable
+        static uuid generate_v7_nullable();
 
         void from_string(uuid_string str);
 
@@ -64,7 +68,10 @@ namespace libsugarx
         }
 
         auto operator<=>(const uuid &other) const = default;
+        consteval static uuid generate_null() { uuid result; result.data.fill(std::byte(0)); return result; }
     };
+
+    constexpr static uuid UUID_NULL = uuid::generate_null();
 }
 
 namespace std
@@ -124,11 +131,20 @@ namespace libsugarx
         return result;
     }
 
-    std::optional<uuid> uuid::generate_v4()
+    std::optional<uuid> uuid::generate_v4_optional()
     {
         uuid result;
         if(RAND_bytes(reinterpret_cast<unsigned char *>(result.data.data()), result.data.size()) != 1)
             return std::nullopt;
+        result.set_version_and_variant(4);
+        return result;
+    }
+
+    uuid uuid::generate_v4_nullable()
+    {
+        uuid result;
+        if(RAND_bytes(reinterpret_cast<unsigned char *>(result.data.data()), result.data.size()) != 1)
+            return UUID_NULL;
         result.set_version_and_variant(4);
         return result;
     }
@@ -151,7 +167,7 @@ namespace libsugarx
         return result;
     }
 
-    std::optional<uuid> uuid::generate_v7()
+    std::optional<uuid> uuid::generate_v7_optional()
     {
         uuid result;
         int64_t now_ms = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::utc_clock::now().time_since_epoch()).count();
@@ -166,6 +182,26 @@ namespace libsugarx
 
         if(RAND_bytes(reinterpret_cast<unsigned char *>(result.data.data() + 6), 10) != 1)
             return std::nullopt;
+
+        result.set_version_and_variant(7);
+        return result;
+    }
+
+    uuid uuid::generate_v7_nullable()
+    {
+        uuid result;
+        int64_t now_ms = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::utc_clock::now().time_since_epoch()).count();
+
+        uint64_t timestamp = static_cast<uint64_t>(now_ms) & 0xFFFFFFFFFFFFULL; // 48 bits
+        result.data[0] = std::byte((timestamp >> 40) & 0xFF);
+        result.data[1] = std::byte((timestamp >> 32) & 0xFF);
+        result.data[2] = std::byte((timestamp >> 24) & 0xFF);
+        result.data[3] = std::byte((timestamp >> 16) & 0xFF);
+        result.data[4] = std::byte((timestamp >> 8)  & 0xFF);
+        result.data[5] = std::byte(timestamp & 0xFF);
+
+        if(RAND_bytes(reinterpret_cast<unsigned char *>(result.data.data() + 6), 10) != 1)
+            return UUID_NULL;
 
         result.set_version_and_variant(7);
         return result;
