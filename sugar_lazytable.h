@@ -4,6 +4,7 @@
 #include <algorithm>
 #include <optional>
 #include <set>
+#include <stdexcept>
 #include <unordered_map>
 #include <vector>
 
@@ -16,40 +17,40 @@ namespace libsugarx
         std::optional<Value> value_;
     public:
 
-        lazy_flat_table_proxy() noexcept = default;
-        ~lazy_flat_table_proxy() noexcept = default;
+        constexpr lazy_flat_table_proxy() noexcept = default;
+        constexpr ~lazy_flat_table_proxy() noexcept = default;
 
-        lazy_flat_table_proxy(lazy_flat_table_proxy<Key, Value>&& other) noexcept = default;
-        lazy_flat_table_proxy<Key, Value>& operator=(lazy_flat_table_proxy&& other) noexcept = default;
+        constexpr lazy_flat_table_proxy(lazy_flat_table_proxy<Key, Value>&& other) noexcept = default;
+        constexpr lazy_flat_table_proxy<Key, Value>& operator=(lazy_flat_table_proxy&& other) noexcept = default;
 
         lazy_flat_table_proxy(const lazy_flat_table_proxy<Key, Value>& other) = delete;
         lazy_flat_table_proxy<Key, Value>& operator=(lazy_flat_table_proxy& other) = delete;
 
         template<typename... Args>
-        lazy_flat_table_proxy(Key self_key, Args... args) :
+        constexpr lazy_flat_table_proxy(Key self_key, Args... args) :
             key_(self_key),
-            value_(std::in_place, std::forward<Args>(args)...),
+            value_(std::forward<Args>(args)...)
         {
         }
 
-        Value &operator->() { return value_.value(); }
-        const Value &operator->() const { return value_.value(); }
+        constexpr Value &operator->() { return value_.value(); }
+        constexpr const Value &operator->() const { return value_.value(); }
 
-        operator Value&() { return value_.value(); }
-        operator const Value&() const { return value_.value(); }
+        constexpr operator Value&() { return value_.value(); }
+        constexpr operator const Value&() const { return value_.value(); }
 
-        Value& value() { return value_.value(); }
-        const Value& value() const { return value_.value(); }
+        constexpr Value& value() { return value_.value(); }
+        constexpr const Value& value() const { return value_.value(); }
 
         lazy_flat_table_proxy *operator&() = delete;
         const lazy_flat_table_proxy *operator&() const = delete;
 
-        Key key() { return key_; }
-        const Key key() const { return key_; }
-        void remove() { value_.reset(); }
-        bool is_removed() const { return !value_.has_value(); }
+        constexpr Key key() noexcept { return key_; }
+        constexpr const Key key() const noexcept { return key_; }
+        constexpr void remove() noexcept { value_.reset(); }
+        constexpr bool is_removed() const noexcept { return !value_.has_value(); }
         template<std::size_t I>
-        decltype(auto) get() const
+        auto get() const
         {
             if constexpr (I == 0)
             {
@@ -57,20 +58,14 @@ namespace libsugarx
             }
             else if constexpr (I == 1)
             {
-                if(!value_.has_value())
-                {
-                    throw std::runtime_error("proxy is removed");
-                }
+                static_assert(value_.has_value(), "Proxy has been removed");
                 return value();
             }
-            else
-            {
-                static_assert(I != I, "Index out of range");
-            }
+            static_assert(false, "Index out of range");
         }
 
         template<std::size_t I>
-        decltype(auto) get()
+        auto get()
         {
             if constexpr (I == 0)
             {
@@ -78,15 +73,12 @@ namespace libsugarx
             }
             else if constexpr (I == 1)
             {
-                if(!value_.has_value())
-                {
-                    throw std::runtime_error("proxy is removed");
-                }
+                static_assert(value_.has_value(), "Proxy has been removed");
                 return value();
             }
             else
             {
-                static_assert(I != I, "Index out of range");
+                static_assert(false, "Index out of range");
             }
         }
     };
