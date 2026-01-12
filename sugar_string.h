@@ -6,6 +6,8 @@
 #include <functional>
 #include <string_view>
 
+#include "sugar_types.h"
+
 namespace libsugarx
 {
     template<std::size_t N>
@@ -78,6 +80,25 @@ namespace libsugarx
 
         return buffer;
     }
+
+    template<std::size_t N>
+    constexpr static void string_append_byte(fixed_string<N> &str, std::byte byte)
+    {
+        static const char hex_digits[] = "0123456789abcdef";
+        unsigned char c = static_cast<unsigned char>(byte);
+        str.concat(hex_digits[c >> 4]);
+        str.concat(hex_digits[c & 0x0F]);
+    };
+
+    template<std::size_t N>
+    [[nodiscard]]
+    constexpr static fixed_string<N> bytes_to_hex_string(const_data_span bytes)
+    {
+        fixed_string<N> result;
+        for(std::size_t i = 0; i < bytes.size() && i < N / 2; i++)
+            string_append_byte(result, bytes[i]);
+        return result;
+    };
 
     /*
     class fixed_string

@@ -1,5 +1,5 @@
-#ifndef LIBSUGARX_UUID
-#define LIBSUGARX_UUID
+#ifndef LIBSUGARX_UUID_H
+#define LIBSUGARX_UUID_H
 
 #include <array>
 #include "sugar_string.h"
@@ -18,14 +18,6 @@ namespace libsugarx
             data[8] = std::byte((static_cast<unsigned char>(data[8]) & 0x3F) | 0x80);
         }
 
-
-        constexpr static void string_append_byte(uuid_string &str, std::byte byte)
-        {
-            static const char hex_digits[] = "0123456789abcdef";
-            unsigned char c = static_cast<unsigned char>(byte);
-            str.concat(hex_digits[c >> 4]);
-            str.concat(hex_digits[c & 0x0F]);
-        };
     public:
         uuid() = default;
         uuid(uuid_string str) { from_string(str); }
