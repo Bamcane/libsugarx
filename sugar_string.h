@@ -209,11 +209,21 @@ namespace libsugarx
 			copy(other);
 			return *this;
 		}
-		constexpr bool operator==(std::string_view other) const { return view() == other; }
-
 		constexpr operator std::string_view() { return view(); }
 		constexpr operator std::string_view() const { return view(); }
 	};
+
+	template<size_t N, size_t N1>
+	constexpr bool operator==(const fixed_string<N> &a, const fixed_string<N1> &b)
+	{
+		return a.view() == b.view();
+	}
+
+	template<size_t N>
+	constexpr bool operator==(const fixed_string<N> &a, std::string_view b)
+	{
+		return a.view() == b;
+	}
 
 }; // namespace libsugarx
 
