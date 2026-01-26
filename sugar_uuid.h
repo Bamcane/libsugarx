@@ -2,6 +2,7 @@
 #define LIBSUGARX_UUID_H
 
 #include <array>
+#include <charconv>
 #include "sugar_string.h"
 
 namespace libsugarx
@@ -14,6 +15,7 @@ namespace libsugarx
 		length,
 		format,
 		too_many_digits,
+		too_few_digits,
 		invalid_char,
 	};
 
@@ -93,21 +95,23 @@ namespace libsugarx
 			for(size_t i = 0; i < 36; ++i)
 			{
 				if(str[i] == '-') continue;
+				if(out_idx >= 32)
+					return uuid_error::too_many_digits;
 				hex_chars[out_idx++] = str[i];
 			}
 
 			if(out_idx != 32)
-				return uuid_error::too_many_digits;
+				return uuid_error::too_few_digits;
 
 			std::array<std::byte, 16> temp{};
 			for(size_t i = 0; i < 16; ++i)
 			{
-				int high = hex_char_to_int(hex_chars[i * 2]);
-				int low = hex_char_to_int(hex_chars[i * 2 + 1]);
-				if(high == -1 || low == -1)
+				int value;
+				auto result = std::from_chars(&hex_chars[i * 2], &hex_chars[i * 2] + 2, value, 16);
+				if(result.ec != std::errc{} && result.ptr == (&hex_chars[i * 2] + 2))
 					return uuid_error::invalid_char;
 
-				temp[i] = static_cast<std::byte>((high << 4) | low);
+				temp[i] = static_cast<std::byte>(value);
 			}
 			data = temp;
 			return uuid_error::none;

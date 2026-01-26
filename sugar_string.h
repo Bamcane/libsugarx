@@ -16,11 +16,14 @@ namespace libsugarx
 	// do NOT compare with std::hash<std::string_view>
 	struct sugarx_string_hash
 	{
+		// do NOT compare with std::hash<std::string_view>
 		struct value
 		{
 			std::size_t v;
 			explicit constexpr value(std::size_t value) noexcept : v(value) {}
+
 			auto operator<=>(const value &other) const = default;
+			auto operator<=>(const std::hash<std::string_view> &other) const = delete;
 		};
 
 		[[nodiscard]]
@@ -100,14 +103,6 @@ namespace libsugarx
 		return result;
 	};
 
-	static constexpr int hex_char_to_int(char c)
-	{
-		if(c >= '0' && c <= '9') return c - '0';
-		if(c >= 'a' && c <= 'f') return c - 'a' + 10;
-		if(c >= 'A' && c <= 'F') return c - 'A' + 10;
-		return -1;
-	}
-
 	/*
 	class fixed_string
 	wrapper of std::array<char, N>
@@ -182,7 +177,7 @@ namespace libsugarx
 				auto end = std::vformat_to(iter, fmt, std::make_format_args(args...));
 				*(end.end_ptr()) = '\0';
 			}
-			catch(const std::exception &e)
+			catch(const std::format_error &e)
 			{
 				return false;
 			}
@@ -218,6 +213,7 @@ namespace libsugarx
 			copy(other);
 			return *this;
 		}
+
 		constexpr operator std::string_view() { return view(); }
 		constexpr operator std::string_view() const { return view(); }
 	};
