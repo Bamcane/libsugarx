@@ -8,6 +8,15 @@ namespace libsugarx
 {
 	using uuid_string = fixed_string<37>;
 
+	enum class uuid_error : uint8_t
+	{
+		none = 0U,
+		length,
+		format,
+		too_many_digits,
+		invalid_char,
+	};
+
 	class uuid
 	{
 		std::array<std::byte, 16> data{};
@@ -19,8 +28,11 @@ namespace libsugarx
 		}
 
 	public:
-		uuid() = default;
-		uuid(uuid_string str) { from_string(str); }
+		constexpr uuid() = default;
+		constexpr uuid(uuid_string str)
+		{
+			from_string(str);
+		}
 
 		std::array<std::byte, 16> &raw_data() { return data; }
 		const std::array<std::byte, 16> &raw_data() const { return data; }
@@ -40,8 +52,6 @@ namespace libsugarx
 		static std::optional<uuid> generate_v7_optional();
 		// timestamp + random + return nullable
 		static uuid generate_v7_nullable();
-
-		void from_string(uuid_string str);
 
 		constexpr uuid_string to_string() const
 		{
@@ -69,16 +79,62 @@ namespace libsugarx
 			return str;
 		}
 
-		auto operator<=>(const uuid &other) const = default;
-		consteval static uuid generate_null()
+		// return uuid_error::none on success
+		constexpr uuid_error from_string(const uuid_string &str)
 		{
-			uuid result;
-			result.data.fill(std::byte(0));
-			return result;
+			if(str.length() != 36)
+				return uuid_error::length;
+
+			if(str[8] != '-' || str[13] != '-' || str[18] != '-' || str[23] != '-')
+				return uuid_error::format;
+
+			std::array<char, 32> hex_chars{};
+			size_t out_idx = 0;
+			for(size_t i = 0; i < 36; ++i)
+			{
+				if(str[i] == '-') continue;
+				hex_chars[out_idx++] = str[i];
+			}
+
+			if(out_idx != 32)
+				return uuid_error::too_many_digits;
+
+			std::array<std::byte, 16> temp{};
+			for(size_t i = 0; i < 16; ++i)
+			{
+				int high = hex_char_to_int(hex_chars[i * 2]);
+				int low = hex_char_to_int(hex_chars[i * 2 + 1]);
+				if(high == -1 || low == -1)
+					return uuid_error::invalid_char;
+
+				temp[i] = static_cast<std::byte>((high << 4) | low);
+			}
+			data = temp;
+			return uuid_error::none;
+		}
+
+		auto operator<=>(const uuid &other) const = default;
+
+		static constexpr const uuid &null()
+		{
+			static uuid null;
+			return null;
 		}
 	};
 
-	constexpr static uuid UUID_NULL = uuid::generate_null();
+	constexpr uuid uuid_from_string_nullable(const uuid_string &str)
+	{
+		uuid result(str);
+		return str;
+	}
+
+	constexpr std::optional<uuid> uuid_from_string_optional(const uuid_string &str)
+	{
+		uuid result;
+		if(result.from_string(str) != uuid_error::none)
+			return std::nullopt;
+		return result;
+	}
 } // namespace libsugarx
 
 namespace std
@@ -110,7 +166,7 @@ namespace std
 
 #endif // LIBSUGARX_UUID
 
-#ifdef LIBSUGARX_UUID_IMPLEMENTATION
+#ifdef LIBSUGARX_UUID_GENERATION_IMPL
 
 #include <chrono>
 
@@ -151,7 +207,7 @@ namespace libsugarx
 	{
 		uuid result;
 		if(RAND_bytes(reinterpret_cast<unsigned char *>(result.data.data()), result.data.size()) != 1)
-			return UUID_NULL;
+			return null();
 		result.set_version_and_variant(4);
 		return result;
 	}
@@ -208,49 +264,11 @@ namespace libsugarx
 		result.data[5] = std::byte(timestamp & 0xFF);
 
 		if(RAND_bytes(reinterpret_cast<unsigned char *>(result.data.data() + 6), 10) != 1)
-			return UUID_NULL;
+			return null();
 
 		result.set_version_and_variant(7);
 		return result;
 	}
-
-	static int hex_char_to_int(char c)
-	{
-		if(c >= '0' && c <= '9') return c - '0';
-		if(c >= 'a' && c <= 'f') return c - 'a' + 10;
-		if(c >= 'A' && c <= 'F') return c - 'A' + 10;
-		return -1;
-	}
-
-	void uuid::from_string(uuid_string str)
-	{
-		if(str.length() != 36)
-			throw std::invalid_argument("invalid uuid string length");
-
-		if(str[8] != '-' || str[13] != '-' || str[18] != '-' || str[23] != '-')
-			throw std::invalid_argument("invalid uuid format: missing hyphens");
-
-		std::array<char, 32> hex_chars{};
-		size_t out_idx = 0;
-		for(size_t i = 0; i < 36; ++i)
-		{
-			if(str[i] == '-') continue;
-			if(out_idx >= 32) throw std::invalid_argument("too many hex digits");
-			hex_chars[out_idx++] = str[i];
-		}
-
-		if(out_idx != 32) throw std::invalid_argument("too few hex digits");
-
-		for(size_t i = 0; i < 16; ++i)
-		{
-			int high = hex_char_to_int(hex_chars[i * 2]);
-			int low = hex_char_to_int(hex_chars[i * 2 + 1]);
-			if(high == -1 || low == -1)
-				throw std::invalid_argument("invalid hex character in uuid");
-
-			data[i] = std::byte(static_cast<unsigned char>((high << 4) | low));
-		}
-	}
 }; // namespace libsugarx
 
-#endif
+#endif // LIBSUGARX_UUID_GENERATION_IMPL

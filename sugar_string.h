@@ -73,7 +73,7 @@ namespace libsugarx
 
 	template<std::size_t N, typename... Args>
 	[[nodiscard]]
-	constexpr fixed_string<N> string_format(std::string_view fmt, Args &&...args)
+	static constexpr fixed_string<N> string_format(std::string_view fmt, Args &&...args)
 	{
 		fixed_string<N> buffer;
 		buffer.format(fmt, std::forward<Args>(args)...);
@@ -82,7 +82,7 @@ namespace libsugarx
 	}
 
 	template<std::size_t N>
-	constexpr static void string_append_byte(fixed_string<N> &str, std::byte byte)
+	static constexpr void string_append_byte(fixed_string<N> &str, std::byte byte)
 	{
 		static const char hex_digits[] = "0123456789abcdef";
 		unsigned char c = static_cast<unsigned char>(byte);
@@ -92,13 +92,21 @@ namespace libsugarx
 
 	template<std::size_t N>
 	[[nodiscard]]
-	constexpr static fixed_string<N> bytes_to_hex_string(const_data_span bytes)
+	static constexpr fixed_string<N> bytes_to_hex_string(const_data_span bytes)
 	{
 		fixed_string<N> result;
 		for(std::size_t i = 0; i < bytes.size() && i < N / 2; i++)
 			string_append_byte(result, bytes[i]);
 		return result;
 	};
+
+	static constexpr int hex_char_to_int(char c)
+	{
+		if(c >= '0' && c <= '9') return c - '0';
+		if(c >= 'a' && c <= 'f') return c - 'a' + 10;
+		if(c >= 'A' && c <= 'F') return c - 'A' + 10;
+		return -1;
+	}
 
 	/*
 	class fixed_string
@@ -116,6 +124,7 @@ namespace libsugarx
 			static_assert(N > 1, "String buffer must own enough memory size.");
 			buffer[0] = '\0';
 		}
+
 		constexpr fixed_string(std::string_view other) noexcept
 		{
 			static_assert(N > 1, "String buffer must own enough memory size.");
@@ -190,10 +199,10 @@ namespace libsugarx
 		constexpr std::array<char, N> &buffer_data() const { return buffer; }
 
 		constexpr char *data() { return buffer.data(); }
-		const char *data() const { return buffer.data(); }
+		constexpr const char *data() const { return buffer.data(); }
 
 		constexpr char &operator[](std::size_t index) { return buffer[index]; }
-		constexpr char &operator[](std::size_t index) const { return buffer[index]; }
+		constexpr const char &operator[](std::size_t index) const { return buffer[index]; }
 
 		constexpr char &at(std::size_t index) { return buffer.at(index); }
 		constexpr char &at(std::size_t index) const { return buffer.at(index); }
