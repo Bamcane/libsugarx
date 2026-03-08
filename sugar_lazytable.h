@@ -59,7 +59,8 @@ namespace libsugarx
 			}
 			else if constexpr(I == 1)
 			{
-				static_assert(value_.has_value(), "Proxy has been removed");
+				if(!value_.has_value())
+					throw std::out_of_range("Proxy has been removed");
 				return value();
 			}
 			static_assert(false, "Index out of range");
@@ -74,7 +75,8 @@ namespace libsugarx
 			}
 			else if constexpr(I == 1)
 			{
-				static_assert(value_.has_value(), "Proxy has been removed");
+				if(!value_.has_value())
+					throw std::out_of_range("Proxy has been removed");
 				return value();
 			}
 			else
