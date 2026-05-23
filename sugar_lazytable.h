@@ -106,10 +106,10 @@ namespace libsugarx
 		/*
 		need to check if return value is available.
 		*/
-		std::optional<std::reference_wrapper<proxy>> emplace(Key key, Args &&...args)
+		proxy &emplace(Key key, Args &&...args)
 		{
 			if(index_table.count(key))
-				return std::nullopt;
+				throw std::invalid_argument("there are duplicate key values");
 			if(removed_list.empty())
 			{
 				proxy &result = proxies.emplace_back(key, std::forward<Args>(args)...);
@@ -120,7 +120,7 @@ namespace libsugarx
 			removed_list.erase(begin);
 			proxy &result = proxies[begin] = proxy(key, std::forward<Args>(args)...);
 			index_table[key] = begin;
-			return std::ref(result);
+			return result;
 		}
 
 		bool contains(const Key &key) const noexcept
