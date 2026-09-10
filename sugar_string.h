@@ -22,6 +22,7 @@ namespace libsugarx
 			std::size_t v;
 			explicit constexpr value(std::size_t value) noexcept : v(value) {}
 
+			constexpr bool operator==(const value &other) const = default;
 			auto operator<=>(const value &other) const = default;
 			auto operator<=>(const std::hash<std::string_view> &other) const = delete;
 		};
@@ -30,7 +31,7 @@ namespace libsugarx
 		constexpr value operator()(std::string_view str) const noexcept
 		{
 			std::size_t h = 0xcbf29ce484222325ULL;
-			for(std::size_t i = 0; i < str.length() - 1; ++i)
+			for(std::size_t i = 0; i < str.length(); ++i)
 			{
 				h ^= static_cast<unsigned char>(str[i]);
 				h *= 0x100000001b3ULL;
@@ -150,7 +151,9 @@ namespace libsugarx
 		{
 			std::size_t current_len = length();
 			std::size_t append_len = other.length();
-			std::ptrdiff_t available = N - current_len - 1;
+			// current_len is at most N - 1, so there is always room for the
+			// terminator
+			std::size_t available = N - current_len - 1;
 
 			if(available > 0 && append_len > 0)
 			{
